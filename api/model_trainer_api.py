@@ -131,7 +131,7 @@ class ModelTrainerAPI:
         if not file_path or not os.path.exists(file_path):
             # return False, "File does not exist", {}.
             return ValidationResponse(
-                success="error",
+                status="error",
                 message="File does not exist",
                 metadata={}
             )
@@ -141,7 +141,7 @@ class ModelTrainerAPI:
             if file_size > self.config.max_file_size:
                 # return False, f"File too large. Max size: {self.config.max_file_size / 1024 / 1024:.1f}MB", {}
                 return ValidationResponse(
-                success="error",
+                status="error",
                 message=f"File too large. Max size: {self.config.max_file_size / 1024 / 1024:.1f}MB",
                 metadata={}
             )
@@ -150,7 +150,7 @@ class ModelTrainerAPI:
             if file_ext not in self.config.supported_formats:
                 # return False, f"Unsupported format. Supported: {', '.join(self.config.supported_formats)}", {}
                 return ValidationResponse(
-                    success="error",
+                    status="error",
                     message=f"Unsupported format. Supported: {', '.join(self.config.supported_formats)}",
                     metadata={}
                 )
@@ -159,7 +159,7 @@ class ModelTrainerAPI:
             metadata = self._analyze_dataset(file_path, file_ext)
             
             return ValidationResponse(
-                success="success",
+                status="success",
                 message="Dataset validated successfully",
                 metadata=metadata
             )
@@ -167,7 +167,7 @@ class ModelTrainerAPI:
         except Exception as e:
             # return False, f"Validation error: {str(e)}", {}
             return ValidationResponse(
-                success="error",
+                status="error",
                 message=f"Validation error: {str(e)}",
                 metadata={}
             )
@@ -225,34 +225,33 @@ class ModelTrainerAPI:
         
         # Validate inputs
         if not model_name.strip():
-            # return False, "Model name is required"
-            return ValidationResponse(
-                success="error",
-                message="Model name is required"
-            )
+            return "error", "Model name is required"
+            # return ValidationResponse(
+            #     status="error",
+            #     message="Model name is required"
+            # )
         
         if model_name in self.trained_models:
-            # return False, f"Model '{model_name}' already exists"
-            return ValidationResponse(
-                success="error",
-                message=f"Model '{model_name}' already exists"
-            )    
+            return "error", f"Model '{model_name}' already exists"
+            # return ValidationResponse(
+            #     status="error",
+            #     message=f"Model '{model_name}' already exists"
+            # )    
         
         if self.active_jobs >= self.config.max_concurrent_jobs:
-            # return False, f"Maximum concurrent jobs ({self.config.max_concurrent_jobs}) reached"
-            return ValidationResponse(
-                success="error",
-                message=f"Maximum concurrent jobs ({self.config.max_concurrent_jobs}) reached"
-            )
+            return "error", f"Maximum concurrent jobs ({self.config.max_concurrent_jobs}) reached"
+            # return ValidationResponse(
+            #     status="error",
+            #     message=f"Maximum concurrent jobs ({self.config.max_concurrent_jobs}) reached"
+            # )
         
         # Validate dataset
-        is_valid, message, dataset_metadata = self.validate_dataset(dataset_path)
-        if not is_valid:
-            # return False, f"Dataset validation failed: {message}"
-            return ValidationResponse(
-                success="error",
-                message=f"Dataset validation failed: {message}"
-            )
+        response = self.validate_dataset(dataset_path)
+        dataset_metadata = response.metadata
+        message = response.message
+        if response.status != "success":
+            return response.status, f"Dataset validation failed: {message}"
+            # return response.status, response.message
         
         # Create training job
         job_id = f"job_{int(time.time())}_{len(self.training_jobs)}"
@@ -282,11 +281,11 @@ class ModelTrainerAPI:
         
         self._save_state()
         
-        # return True, f"Training started successfully! Job ID: {job_id}"
-        return ValidationResponse(
-            status="error",
-            message=f"Dataset validation failed: {message}"
-        )
+        return "success", f"Training started successfully! Job ID: {job_id}"
+        # return ValidationResponse(
+        #     status="error",
+        #     message=f"Dataset validation failed: {message}"
+        # )
     
     def _simulate_training(self, job_id: str):
         """Simulate training process (replace with actual training logic)"""
@@ -464,14 +463,14 @@ class ModelTrainerAPI:
         if not job:
             # return False, f"Job {job_id} not found"
             return ValidationResponse(
-                success="error",
+                status="error",
                 message=f"Job {job_id} not found"
             )
         
         if job.status not in ['pending', 'training']:
             # return False, f"Cannot cancel job with status: {job.status}"
             return ValidationResponse(
-                success="error",
+                status="error",
                 message=f"Cannot cancel job with status: {job.status}"
             )
         
@@ -482,7 +481,7 @@ class ModelTrainerAPI:
         
         # return True, f"Training job {job_id} cancelled successfully"
         return ValidationResponse(
-            success="success",
+            status="success",
             message=f"Training job {job_id} cancelled successfully"
         )
     
@@ -492,7 +491,7 @@ class ModelTrainerAPI:
         if not model:
             # return False, f"Model '{model_name}' not found"
             return ValidationResponse(
-                success="error",
+                status="error",
                 message=f"Model '{model_name}' not found"
             )
         
@@ -508,14 +507,14 @@ class ModelTrainerAPI:
             
             # return True, f"Model '{model_name}' deleted successfully"
             return ValidationResponse(
-                success="success",
+                status="success",
                 message=f"Model '{model_name}' deleted successfully"
             )
             
         except Exception as e:
             # return False, f"Error deleting model: {str(e)}"
             return ValidationResponse(
-                success="error",
+                status="error",
                 message=f"Error deleting model: {str(e)}"
             )
     
@@ -540,13 +539,13 @@ class ModelTrainerAPI:
             
             # return True, f"Model exported to: {export_path}"
             return ValidationResponse(
-                success="success",
+                status="success",
                 message=f"Model exported to: {export_path}"
             )
             
         except Exception as e:
             # return False, f"Export failed: {str(e)}"
             return ValidationResponse(
-                success="success",
+                status="success",
                 message=f"Export failed: {str(e)}"
             )
