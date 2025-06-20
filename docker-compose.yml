@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  cve-analyst-api:
+    build: .
+    ports:
+      - "8021:8000"
+    volumes:
+      - ./cve_data:/app/cve_data
+      - ./models:/app/models
+      - ./logs:/app/logs
+    environment:
+      - NVD_API_KEY=${NVD_API_KEY}
+    restart: unless-stopped
+  
+  cve-analyst-gradio:
+    build: .
+    command: python cli/main.py api --interface gradio --port 7860
+    ports:
+      - "7860:7860"
+    volumes:
+      - ./cve_data:/app/cve_data
+      - ./models:/app/models
+    restart: unless-stopped
+  
+  cve-scheduler:
+    build: .
+    command: python cli/main.py schedule
+    volumes:
+      - ./cve_data:/app/cve_data
+      - ./models:/app/models
+      - ./logs:/app/logs
+    environment:
+      - NVD_API_KEY=${NVD_API_KEY}
+    restart: unless-stopped

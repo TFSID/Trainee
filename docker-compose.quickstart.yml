@@ -1,0 +1,131 @@
+services:
+  # Main API Service
+  cve-analyst-api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: cve-analyst-api
+    ports:
+      - "${API_PORT:-8021}:8000"
+    volumes:
+      - ./cve_data:/app/cve_data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./config:/app/config
+    environment:
+      - NVD_API_KEY=${NVD_API_KEY:-}
+      - MODEL_NAME=${MODEL_NAME:-deepseek-ai/deepseek-coder-1.3b-instruct}
+      - MAX_LENGTH=${MAX_LENGTH:-2048}
+      - BATCH_SIZE=${BATCH_SIZE:-4}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cve-network
+
+  # Gradio Web Interface
+  cve-analyst-ui:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: cve-analyst-ui
+    command: python cli/main.py api --interface gradio --port 7860
+    ports:
+      - "${UI_PORT:-7860}:7860"
+    volumes:
+      - ./cve_data:/app/cve_data
+      - ./models:/app/models
+      - ./config:/app/config
+    environment:
+      - MODEL_NAME=${MODEL_NAME:-deepseek-ai/deepseek-coder-1.3b-instruct}
+    restart: unless-stopped
+    depends_on:
+      - cve-analyst-api
+    networks:
+      - cve-network
+
+  # Background Scheduler
+  cve-scheduler:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: cve-scheduler
+    command: python cli/main.py schedule
+    volumes:
+      - ./cve_data:/app/cve_data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./config:/app/config
+    environment:
+      - NVD_API_KEY=${NVD_API_KEY:-}
+      - UPDATE_INTERVAL_HOURS=${UPDATE_INTERVAL_HOURS:-6}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    depends_on:
+      - cve-analyst-api
+    networks:
+      - cve-network
+
+  # Database (Optional - untuk production)
+  postgres:
+    image: postgres:13
+    container_name: cve-postgres
+    environment:
+      - POSTGRES_DB=cve_database
+      - POSTGRES_USER=cve_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-cve_password_123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - cve-network
+    profiles:
+      - production
+
+  # Redis Cache (Optional)
+  redis:
+    image: redis:7-alpine
+    container_name: cve-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - cve-network
+    profiles:
+      - production
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: cve-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - cve-analyst-api
+      - cve-analyst-ui
+    restart: unless-stopped
+    networks:
+      - cve-network
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  cve-network:
+    driver: bridge

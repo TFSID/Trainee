@@ -1,0 +1,58 @@
+{
+  "system": {
+    "name": "CVE Analyst System",
+    "version": "1.0.0",
+    "description": "AI-powered CVE analysis and security recommendations"
+  },
+  "quickstart": {
+    "default_ports": {
+      "api": 8000,
+      "ui": 7860,
+      "database": 5432,
+      "redis": 6379
+    },
+    "setup_modes": {
+      "docker": {
+        "description": "Full Docker setup with all services",
+        "time_estimate": "5-10 minutes",
+        "requirements": ["docker", "docker-compose"]
+      },
+      "local": {
+        "description": "Local Python setup",
+        "time_estimate": "10-15 minutes",
+        "requirements": ["python3.8+", "pip"]
+      },
+      "manual": {
+        "description": "Step-by-step manual setup",
+        "time_estimate": "15-30 minutes",
+        "requirements": ["python3.8+", "pip", "manual configuration"]
+      }
+    },
+    "sample_data": {
+      "initial_cves": 100,
+      "days_back": 7,
+      "include_exploits": true,
+      "include_mitre_attack": true
+    },
+    "model_config": {
+      "default_model": "deepseek-ai/deepseek-coder-1.3b-instruct",
+      "light_model": "microsoft/DialoGPT-small",
+      "production_model": "deepseek-ai/deepseek-coder-6.7b-instruct"
+    }
+  },
+  "health_checks": {
+    "api_endpoint": "/health",
+    "timeout": 30,
+    "retry_count": 3,
+    "expected_status": 200
+  },
+  "demo_data": {
+    "sample_cves": ["CVE-2024-1234", "CVE-2023-5678", "CVE-2023-9999"],
+    "sample_instructions": [
+      "Analyze this CVE and provide security recommendations",
+      "Provide a risk assessment for this vulnerability",
+      "Suggest mitigation strategies for this vulnerability",
+      "Create detection rules for this CVE"
+    ]
+  }
+}
